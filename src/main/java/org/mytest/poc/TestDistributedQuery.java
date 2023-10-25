@@ -174,20 +174,16 @@ public class TestDistributedQuery {
         SqlFieldsQuery q2 = new SqlFieldsQuery(joinSql);
         q2.setDistributedJoins(false);
         q2.setPageSize(100);
-
-        
         int[] partitions = Ignition.ignite().affinity(A_CACHE).primaryPartitions(Ignition.ignite().cluster().forLocal().node());
         int[][] p = partition(partitions, 1024 / PARRALEL_LEVEL);
-
         t = System.currentTimeMillis();
         System.out.println(p.length);
         for (int[] parts : p) {
             q2.setPartitions(parts);
             c = cacheA.query(q2);              
-            c.spliterator().tryAdvance(w -> { System.out.println("************ w: " + w); });
+            c.spliterator().tryAdvance(w -> { System.out.println(String.format("Result for partitions : %s is %s ", Arrays.toString(parts), w)); });
         }
         t = System.currentTimeMillis() - t;
-//        print("All Entity A --> B w/o distributed joins with h2 with join", l, t);
 
         
         
@@ -268,8 +264,10 @@ public class TestDistributedQuery {
     private static void sqlQueryWithJoinEntityAEntityBWithEntityCEntityD() {
         IgniteCache<EntityAKey, EntityA> cacheA = Ignition.ignite().cache(A_CACHE);
 
-        String joinSql = "select count(1) from \"EntityA\".EntityA as a " + " inner join \"EntityB\".EntityB as b on a.id = b.entityA" + " inner join \"EntityC\".EntityC as c on a.entityC = c.id"
-                + " inner join \"EntityD\".EntityD as d on c.id = d.entityC";
+        String joinSql = "select count(1) from \"EntityA\".EntityA as a " 
+                + " inner join \"EntityB\".EntityB as b on a.id = b.entityA" 
+                + " inner join \"EntityC\".EntityC as c on a.entityC = c.id"
+                + " inner join \"EntityD\".EntityD as d on d.entityC = a.entityC";
         SqlFieldsQuery q1 = new SqlFieldsQuery(joinSql);
         q1.setDistributedJoins(true);
         q1.setPageSize(100);
@@ -288,8 +286,12 @@ public class TestDistributedQuery {
         t = System.currentTimeMillis() - t;
         print("All Entity A (--> B) --> C (-->D) w/o distributed joins with H2", l, t);
 
-        joinSql = "select  /*+ QUERY_ENGINE('calcite') */  count(*) from \"EntityA\".EntityA as a " + " inner join \"EntityB\".EntityB as b on a.id = b.entityA"
-                + " inner join \"EntityC\".EntityC as c on a.entityC = c.id" + " inner join \"EntityD\".EntityD as d on c.id = d.entityC";
+        
+        
+        joinSql = "select  /*+ QUERY_ENGINE('calcite') */  count(*) from \"EntityA\".EntityA as a " 
+                + " inner join \"EntityB\".EntityB as b on a.id = b.entityA"
+                + " inner join \"EntityC\".EntityC as c on a.entityC = c.id" 
+                + " inner join \"EntityD\".EntityD as d on c.id = d.entityC";
         q1 = new SqlFieldsQuery(joinSql);
         q1.setDistributedJoins(true);
         q2.setPageSize(100);
@@ -318,14 +320,14 @@ public class TestDistributedQuery {
         IgniteCache<EntityBKey, EntityB> cacheB = Ignition.ignite().cache(B_CACHE);
 
         for (long i = 0; i < NB_ENTITY_A; i++) {
-            EntityAKey ka = new EntityAKey(Long.toString(i));
-            EntityA va = new EntityA(Long.toString(i), "entityA-value-" + Long.toString(i), Long.toString(i % NB_ENTITY_C));
+            EntityAKey ka = new EntityAKey("AKey-" + Long.toString(i));
+            EntityA va = new EntityA("AKey-" + Long.toString(i), "entityA-value-" + Long.toString(i), "CKey-" + Long.toString(i % NB_ENTITY_C));
             cacheA.put(ka, va);
 
             for (long j = 0; j < NB_ENTITY_B; j++) {
 
-                EntityBKey kb = new EntityBKey(Long.toString(j), Long.toString(i));
-                EntityB vb = new EntityB(Long.toString(j), Long.toString(i), "entityB-value-" + Long.toString(j));
+                EntityBKey kb = new EntityBKey("BKey-" + Long.toString(j), "AKey-" + Long.toString(i));
+                EntityB vb = new EntityB("BKey-" + Long.toString(j), "AKey-" + Long.toString(i), "entityB-value-" + Long.toString(j));
                 cacheB.put(kb, vb);
             }
         }
@@ -334,14 +336,14 @@ public class TestDistributedQuery {
         IgniteCache<EntityDKey, EntityD> cacheD = Ignition.ignite().cache(D_CACHE);
 
         for (long i = 0; i < NB_ENTITY_C; i++) {
-            EntityCKey kc = new EntityCKey(Long.toString(i));
-            EntityC vc = new EntityC(Long.toString(i), "entityC-value-" + Long.toString(i));
+            EntityCKey kc = new EntityCKey("CKey-" + Long.toString(i));
+            EntityC vc = new EntityC("CKey-" + Long.toString(i), "entityC-value-" + Long.toString(i));
             cacheC.put(kc, vc);
 
             for (long j = 0; j < NB_ENTITY_D; j++) {
 
-                EntityDKey kd = new EntityDKey(Long.toString(j), Long.toString(i));
-                EntityD vd = new EntityD(Long.toString(j), Long.toString(i), "entityD-value-" + Long.toString(j));
+                EntityDKey kd = new EntityDKey("DKey-" + Long.toString(j), "CKey-" + Long.toString(i));
+                EntityD vd = new EntityD("DKey-" + Long.toString(j), "CKey-" + Long.toString(i), "entityD-value-" + Long.toString(j));
                 cacheD.put(kd, vd);
             }
         }
